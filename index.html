@@ -554,6 +554,7 @@ const TARTARE='Si può mangiare crudo come tartare, non come carpaccio (troppo s
 const OLIO='Vale per tutto il pasto, non solo per condire: in cottura a tua scelta.';
 const VNOTE='Varia le verdure durante la settimana. Quantità libera: le calorie sono trascurabili.';
 const F2={f:'max 2×/sett'};
+const F1={f:'max 1×/sett'};
 const GRANA='Grana Padano / Parmigiano Reggiano';
 const EVO='Olio extravergine di oliva';
 
@@ -609,76 +610,77 @@ const DIET={
   },
   andrus:{
     week:['A','A','B','A','B','A','B'],
-    gkg:['5','1,9','1,1'],
-    avg:[367,141,81,2761],
+    gkg:['5,8','2','1'],
+    avg:[438,152,78,3067],
     plans:{
-      A:{label:'Allenamento',macro:[418,158,69,2929],meals:[
-        {t:'Colazione',m:[75,37,17,598],g:[
-          [O('Corn flakes / Coco pops',60),O('Pane a lievitazione naturale',70,{plus:'Marmellata 30 g'}),O('Fette biscottate',null,{d:'5 fette',plus:'Marmellata 30 g'})],
+      A:{label:'Allenamento',macro:[497,164,65,3235],meals:[
+        {t:'Colazione',m:[109,38,18,745],g:[
+          [O('Corn flakes',80)],
           [O('Proteine del siero del latte (whey)',30)],
-          [O('Latte di riso e cocco',150,{note:'Diluisci con acqua se non basta per i cereali.'})],
+          [O('Latte di riso e cocco',300,{note:'Es. Carrefour Bio drink riso e cocco. Ingredienti: solo acqua, riso e cocco, olio vegetale (facoltativo), sale marino.',link:'https://www.carrefour.it/p/carrefour-bio-drink-riso-e-cocco-1-l/8012666049684.html'})],
           [O('Crema di frutta secca 100%',20,{note:'Meglio di mandorle pelate.'})],
-          [O('Frutti di bosco',100,{note:'In alternativa: mela o pera cotta con cannella.'})],
-          [O('Sale',1,{note:'Mettilo dove vuoi, ma mettilo.'})]
+          [O('Frutti di bosco',100)],
+          [O('Sale',1)]
         ]},
-        {t:'Spuntino mattutino',m:[23,1,0,96],g:[[FRUIT()]]},
-        {t:'Pranzo',m:[129,53,26,962],g:[
-          [O('Riso bianco',140,{note:RISO}),O('Pasta',150)],
+        {t:'Spuntino mattina',m:[23,1,0,96],g:[[FRUIT()]]},
+        {t:'Pranzo',m:[138,54,26,1000],g:[
+          [O('Pasta',160,{note:'Marca: De Cecco, Garofalo, Rummo.'}),O('Riso bianco',150,{note:RISO})],
           [O(GRANA,10)],
-          [O('Petto di pollo',150),O('Petto di tacchino',150),O('Macinato magro di bovino',150,F2),O('Carne di vitello magra',160,F2),O('Tonno al naturale',140,{f:'max 2×/sett',note:'Peso sgocciolato.'})],
+          [O('Petto di pollo',150),O('Petto di tacchino',150),O('Macinato magro di bovino',150,F2),O('Carne di vitello magra',160,F2),O('Tonno al naturale',140,F1)],
           [VERD()],
           [O(EVO,15)],
-          [O('Olio di cocco',5)],
+          [O('Burro chiarificato',5)],
           [O('Sale',1.5)]
         ]},
-        {t:'Pre-allenamento',sub:'spuntino pomeridiano',m:[51,6,1,236],g:[
+        {t:'Spuntino pomeriggio',sub:"prima dell'allenamento",m:[64,7,1,294],g:[
           [FRUIT({note:'1 banana matura.'})],
-          [O("Grissini all'acqua",40)]
+          [O("Grissini all'acqua",60),O('Gallette',50)]
         ]},
-        {t:'Intra-allenamento',m:[29,10,0,156],g:[
-          [O('MAP Muscle Amino Performance (EAA)',null,{d:'5 capsule',link:'https://www.nutraff.com/products/map-pool-di-eaa'})],
+        {t:'Intra-workout',m:[29,10,0,156],g:[
           [O('Maltodestrine',30)],
-          [O('Sale',1)]
+          [O('Sale',1)],
+          [O('MAP Muscle Amino Performance (EAA)',null,{d:'5 capsule',link:'https://www.nutraff.com/products/map-pool-di-eaa'})]
         ]},
-        {t:'Cena',m:[111,51,26,883],g:[
-          [O('Riso bianco',120,{note:RISO})],
+        {t:'Cena',m:[135,55,21,947],g:[
+          [O('Riso bianco',150,{note:RISO}),O('Pasta',160)],
           [O(GRANA,10)],
-          [O('Petto di pollo',120),O('Petto di tacchino',120),O('Macinato magro di bovino',130,F2),O('Carne di vitello magra',140,F2),O('Tonno al naturale',110,{f:'max 2×/sett',note:'Peso sgocciolato.'})],
-          [O('Uova',null,{d:'1 grande'})],
-          [VERD()],
+          [O('Petto di pollo',150),O('Petto di tacchino',150),O('Macinato magro di bovino',160,F2),O('Carne di vitello magra',170,F2),O('Tonno al naturale',140,F1)],
+          [O('Zucchine',200)],
           [O(EVO,10)],
-          [O('Olio di cocco',5)],
-          [O('Sale',2)]
+          [O('Burro chiarificato',5)],
+          [O('Sale',1.5)]
         ]}
       ]},
-      B:{label:'Riposo',macro:[298,119,96,2537],meals:[
-        {t:'Colazione',m:[58,32,9,441],g:[
-          [O('Yogurt greco 0%',200)],
+      B:{label:'Riposo',macro:[360,135,96,2842],meals:[
+        {t:'Colazione',m:[86,26,13,569],g:[
+          [O('Pane a lievitazione naturale',80,{plus:'Marmellata 40 g'})],
+          [O('Yogurt greco 0%',150)],
+          [O('Crema di frutta secca 100%',20)],
           [FRUIT({note:'Mela o pera cotta con cannella.'})],
-          [O("Avena (fiocchi piccoli)",40,{note:'Cotta al microonde o in pentolino.'})],
-          [O('Frutti di bosco',100)],
-          [O('Crema di frutta secca 100%',10)],
           [O('Sale',1)]
         ]},
-        {t:'Spuntino mattutino',m:[23,1,0,96],g:[[FRUIT()]]},
-        {t:'Pranzo',m:[87,44,44,926],g:[
-          [O('Pasta di grano saraceno',120),O('Quinoa',120),O('Cous cous',100)],
+        {t:'Spuntino mattina',m:[35,20,2,236],g:[
+          [O('Yogurt greco 0%',150),O('Proteine del siero del latte (whey)',15)],
+          [O('Avena',50,{note:'Fiocchi o farina istantanea.'}),O('Farina di riso',30),O('Gallette',30)],
+          [O('Frutti di bosco',100)]
+        ]},
+        {t:'Pranzo',m:[107,47,40,975],g:[
+          [O('Pasta di grano saraceno',150),O('Quinoa',150),O('Cous cous',130)],
           [O(GRANA,10)],
           [O('Uova',null,{d:'3 grandi'})],
           [VERD()],
           [O(EVO,10)],
           [O('Burro chiarificato',5)],
-          [O('Sale',1.5)],
-          [O('Cioccolato fondente 90%',10)]
+          [O('Sale',1.5)]
         ]},
-        {t:'Spuntino pomeridiano',m:[49,5,6,270],g:[
+        {t:'Spuntino pomeriggio',m:[51,4,4,253],g:[
           [FRUIT()],
-          [O('Cracker / Grissini / Taralli',40)]
+          [O('Cracker / Grissini / Taralli',40),O('Castagne',80)]
         ]},
-        {t:'Cena',m:[81,37,37,804],g:[
-          [O('Filetto di salmone',130,{note:TARTARE}),O('Filetto di tonno rosso',130,{plus:'Olive verdi 30 g',note:TARTARE}),O('Filetto di branzino',130,{plus:'Olive verdi 50 g'}),
+        {t:'Cena',m:[81,37,38,812],g:[
+          [O('Filetto di salmone',130),O('Filetto di tonno rosso',130,{plus:'Olive verdi 30 g'}),O('Filetto di branzino',130,{plus:'Olive verdi 50 g'}),
            O('Pesce spada',140,{plus:'Olive verdi 60 g'}),O('Sgombro o maccarello',150),O('Filetti di orata',130,{plus:'Olive verdi 30 g'})],
-          [O('Patate',400),O('Gnocchi di patate',250)],
+          [O('Patate',400),O('Gnocchi di patate',250),O('Polenta',180)],
           [O(EVO,10)],
           [O('Burro chiarificato',5)],
           [VERD()],
@@ -730,7 +732,7 @@ const FRUITS=[
   F('mirtilli','Mirtilli',{estate:''},false,[340,'circa 2–3 vaschette da 125 g'],[360,'circa 3 vaschette da 125 g'],BOSCO),
   F('more','More',{estate:''},false,[210,'circa 1½ vaschette da 125 g'],[230,'circa 2 vaschette da 125 g'],BOSCO),
   F('fichidindia',"Fichi d'India",{autunno:''},false,[130,"circa 2 fichi d'India"],[140,"circa 2 fichi d'India"]),
-  F('castagne','Castagne',{autunno:''},false,[45,'circa 5, crude e sbucciate'],[50,'circa 6, crude e sbucciate'],{tag:'Amidacea',note:'Arrostite e sgusciate: Vein 40 g, Andrus 45 g. Sono più vicine a un carboidrato che alla frutta.'}),
+  F('castagne','Castagne',{autunno:''},false,[45,'circa 5, crude e sbucciate'],[50,'circa 6, crude e sbucciate'],{tag:'Amidacea',note:'Arrostite e sgusciate: Vein 40 g, Andrus 45 g. Sono più vicine a un carboidrato che alla frutta.',noteA:'Nei giorni B 80 g di castagne possono sostituire cracker, grissini o taralli nello spuntino del pomeriggio.'}),
   F('melagrana','Melagrana',{autunno:''},true,[100,'½ melagrana'],[150,'½ melagrana']),
   F('banana','Banana',{tutto:''},true,[100,'1 banana'],[100,'1 banana'],{noteA:'Prima dell\'allenamento: 1 banana matura.'}),
   F('ananas','Ananas',{tutto:''},true,[150,''],[150,'']),
@@ -947,7 +949,7 @@ function shiftDay(delta){
 
 /* ---------- CALCOLI: crudo → cotto ---------- */
 const CDEF={food:'',crudo:'',cotto:'',resa:'',resaManual:false,v:{g:'',n:''},a:{g:'',n:''},inv:''};
-let C=Object.assign(clone(CDEF),{food:'Riso bianco',crudo:'500',resa:'riso',v:{g:'80',n:'2'},a:{g:'140',n:'2'}},lsGet('va-calc',{}));
+let C=Object.assign(clone(CDEF),{food:'Riso bianco',crudo:'500',resa:'riso',v:{g:'80',n:'2'},a:{g:'150',n:'2'}},lsGet('va-calc',{}));
 C.v=Object.assign({g:'',n:''},C.v);C.a=Object.assign({g:'',n:''},C.a);
 $('#c-resa').innerHTML='<option value="">Nessuna: uso il peso cotto</option>'+RESE.map(r=>'<option value="'+r.id+'">'+esc(r.n)+' · ×'+fmt(r.f,2)+'</option>').join('');
 function calcFactor(){
@@ -1000,7 +1002,7 @@ $('#c-resa').addEventListener('change',e=>{C.resa=e.target.value;C.resaManual=tr
 
 /* ---------- CALCOLI: totali ---------- */
 let T=lsGet('va-tot',null);
-if(!Array.isArray(T)||!T.length)T=[{food:'Riso bianco',v:{g:'80',n:'1'},a:{g:'140',n:'1'}}];
+if(!Array.isArray(T)||!T.length)T=[{food:'Riso bianco',v:{g:'80',n:'1'},a:{g:'150',n:'1'}}];
 function rowTotal(r){return num(r.v.g)*num(r.v.n)+num(r.a.g)*num(r.a.n)}
 function totText(r){
   const t=rowTotal(r);const v=num(r.v.g)*num(r.v.n),a=num(r.a.g)*num(r.a.n);
