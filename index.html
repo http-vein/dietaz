@@ -247,6 +247,7 @@ select.inp{padding-right:30px;background-image:linear-gradient(45deg,transparent
 .bal{margin-top:12px;font-size:14px;padding:10px 12px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line-soft)}
 .bal.warn{color:var(--warn);background:var(--warn-soft);border-color:transparent}
 .bal:empty{display:none}
+.bal-a{margin-top:9px;display:flex;gap:8px;flex-wrap:wrap}
 .inv{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;font-size:14px;color:var(--muted)}
 .inv .uw{width:110px}
 .inv b{font-family:var(--f-num);color:var(--fg);font-size:16px}
@@ -407,7 +408,7 @@ select.inp{padding-right:30px;background-image:linear-gradient(45deg,transparent
             <div class="field"><label for="c-crudo">Peso crudo totale</label><div class="uw"><input id="c-crudo" class="inp num" inputmode="decimal" autocomplete="off" placeholder="0"><span class="u">g</span></div></div>
             <div class="field"><label for="c-cotto">Peso cotto totale</label><div class="uw"><input id="c-cotto" class="inp num" inputmode="decimal" autocomplete="off" placeholder="da pesare"><span class="u">g</span></div></div>
           </div>
-          <div class="field"><label for="c-resa">Se il cotto non l'hai ancora pesato: resa indicativa (tabella INRAN)</label><select id="c-resa" class="inp"></select></div>
+          <div class="field" id="c-resa-f"><label for="c-resa">Cotto non ancora pesato? Resa indicativa (tabella INRAN)</label><select id="c-resa" class="inp"></select></div>
         </div>
         <div class="scale" id="c-scale" aria-live="polite"></div>
         <div class="pps">
@@ -522,7 +523,7 @@ const $=(s,r)=>(r||document).querySelector(s);
 const $$=(s,r)=>Array.from((r||document).querySelectorAll(s));
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
-const num=v=>{const n=parseFloat(String(v==null?'':v).replace(',','.'));return Number.isFinite(n)?n:0};
+const num=v=>{let s=String(v==null?'':v).replace(/\s/g,'');if(/^[1-9]\d{0,2}(\.\d{3})+(,\d*)?$/.test(s))s=s.replace(/\./g,'');const n=parseFloat(s.replace(',','.'));return Number.isFinite(n)?n:0};
 const fmt=(n,d)=>Number.isFinite(n)?n.toLocaleString('it-IT',{maximumFractionDigits:d||0,minimumFractionDigits:0}):'–';
 const clone=o=>JSON.parse(JSON.stringify(o==null?{}:o));
 const NAME={vein:'Vein',andrus:'Andrus'};
@@ -800,14 +801,15 @@ const FOODIDX=[];
 const FOODNAMES=Array.from(new Set(FOODIDX.map(f=>f.n).concat(FRUITS.map(f=>f.n)).concat(['Verdura','Uova','Marmellata','Olive verdi','Olive nere']))).sort((a,b)=>a.localeCompare(b,'it'));
 $('#dl-foods').innerHTML=FOODNAMES.map(n=>'<option value="'+esc(n)+'"></option>').join('');
 
+const STOPW=['di','del','della','al','all','alla','con','in'];
 function chipsFor(food,who){
   const q=norm(food).trim();if(q.length<2)return [];
+  const toks=q.split(/[^a-z0-9]+/).filter(t=>t.length>=3&&!STOPW.includes(t));
   const out=[];
   FOODIDX.forEach(f=>{
     if(f.who!==who)return;
-    if(f.key.includes(q)||(q.includes(f.key)&&f.key.length>3)){
-      if(!out.some(o=>o.g===f.g&&o.n===f.n))out.push(f);
-    }
+    const ok=f.key.includes(q)||(q.includes(f.key)&&f.key.length>3)||(toks.length&&toks.every(t=>f.key.includes(t)));
+    if(ok&&!out.some(o=>o.g===f.g&&o.n===f.n))out.push(f);
   });
   return out.slice(0,5);
 }
@@ -963,32 +965,49 @@ function initCalc(){
   $('#c-vg').value=C.v.g;$('#c-vn').value=C.v.n;$('#c-ag').value=C.a.g;$('#c-an').value=C.a.n;$('#c-inv').value=C.inv;
   renderCalcChips();calcUpdate();
 }
+const RESA_Q={riso:'riso bianco',parboiled:'riso',integrale:'riso integrale',pasta:'pasta',uovo:"pasta all'uovo",ceci:'legumi',fagioli:'legumi',lenticchie:'legumi',pollo:'pollo',tacchino:'tacchino',merluzzo:'pesce bianco'};
 function renderCalcChips(){
-  $('#c-vchips').innerHTML=chipsHTML(C.food,'vein','c-chip');
-  $('#c-achips').innerHTML=chipsHTML(C.food,'andrus','c-chip');
+  const q=(C.food||'').trim()||RESA_Q[C.resa]||'';
+  $('#c-vchips').innerHTML=chipsHTML(q,'vein','c-chip');
+  $('#c-achips').innerHTML=chipsHTML(q,'andrus','c-chip');
 }
 function calcUpdate(){
   const crudo=num(C.crudo);const r=calcFactor();const f=r.f;
+  $('#c-resa-f').hidden=num(C.cotto)>0;
   const sc=$('#c-scale');
   if(f){
     let right='100 g crudi<br>= <b>'+fmt(100*f)+' g</b> cotti';
     if(r.est&&crudo>0)right+='<br>'+fmt(crudo)+' g → circa <b>'+fmt(crudo*f)+' g</b>';
+    if(!r.est)right+='<br>dai tuoi pesi: '+fmt(crudo)+' → '+fmt(num(C.cotto))+' g';
     sc.innerHTML='<div><span class="scale-l">Fattore'+(r.est?'<em>stima</em>':'')+'</span><span class="scale-f">×'+fmt(f,2)+'</span></div><div class="scale-r">'+right+'</div>';
   }else{
     sc.innerHTML='<div><span class="scale-l">Fattore</span><span class="scale-f dim">×–</span></div><div class="scale-r">Inserisci peso crudo e cotto<br>o scegli una resa indicativa</div>';
   }
   [['v','vein'],['a','andrus']].forEach(x=>{
     const g=num(C[x[0]].g),n=num(C[x[0]].n);const out=$('#c-'+x[0]+'out');
-    if(g>0&&f){out.innerHTML=fmt(g*f)+' g<small>cotti a porzione'+(n>0?' · '+fmt(n)+' porz. = '+fmt(g*f*n)+' g':'')+'</small>'}
+    if(g>0&&f){const pc=Math.round(g*f);out.innerHTML=fmt(pc)+' g<small>cotti a porzione'+(n>0?' · '+fmt(n)+' porz. = '+fmt(pc*n)+' g':'')+'</small>'}
     else if(g>0){out.innerHTML='<small>Serve il fattore per il peso da cotto</small>'}
     else out.innerHTML='<small>Scegli la porzione da crudo</small>';
   });
-  const used=num(C.v.g)*num(C.v.n)+num(C.a.g)*num(C.a.n);
+  const gV=num(C.v.g),gA=num(C.a.g),nV=num(C.v.n),nA=num(C.a.n);
+  const used=gV*nV+gA*nA;
   const bal=$('#c-bal');
-  if(crudo>0&&used>0){
+  const porz=(k,who)=>'<b class="num">'+k+'</b> '+(k===1?'porzione':'porzioni')+' di '+who;
+  if(crudo>0&&(gV>0||gA>0)&&!(nV>0)&&!(nA>0)){
+    const parts=[];
+    if(gV>0)parts.push(porz(Math.floor(crudo/gV),'Vein'));
+    if(gA>0)parts.push(porz(Math.floor(crudo/gA),'Andrus'));
+    let h='Con '+fmt(crudo)+' g crudi ci stanno '+parts.join(' oppure ');let btn='';
+    if(gV>0&&gA>0){const k=Math.floor(crudo/(gV+gA));h+=', oppure <b class="num">'+k+'</b> a testa';if(k>0)btn='<button type="button" class="btn sm" data-act="c-split" data-k="'+k+'">Metti '+k+' a testa</button>'}
+    else{const x=gV>0?'v':'a';const k=Math.floor(crudo/(gV||gA));if(k>0)btn='<button type="button" class="btn sm" data-act="c-fill" data-x="'+x+'" data-k="'+k+'">Metti '+k+' porzioni</button>'}
+    bal.className='bal';bal.innerHTML='<p>'+h+'.</p>'+(btn?'<div class="bal-a">'+btn+'</div>':'');
+  }else if(crudo>0&&used>0){
     const left=crudo-used;
-    if(left>=0){bal.className='bal';bal.innerHTML='Porzioni: <b class="num">'+fmt(used)+' g</b> crudi su '+fmt(crudo)+' · avanzano <b class="num">'+fmt(left)+' g</b> crudi'+(f?' ('+fmt(left*f)+' g cotti)':'')}
-    else{bal.className='bal warn';bal.innerHTML='Mancano <b class="num">'+fmt(-left)+' g</b> crudi'+(f?' ('+fmt(-left*f)+' g cotti)':'')+': togli una porzione o cucinane di più.'}
+    if(left>=0){
+      const ex=[];if(gV>0&&left>=gV)ex.push(porz(Math.floor(left/gV),'Vein'));if(gA>0&&left>=gA)ex.push(porz(Math.floor(left/gA),'Andrus'));
+      bal.className='bal';bal.innerHTML='<p>Porzioni: <b class="num">'+fmt(used)+' g</b> crudi su '+fmt(crudo)+' · avanzano <b class="num">'+fmt(left)+' g</b> crudi'+(f?' ('+fmt(left*f)+' g cotti)':'')+(ex.length?'. Bastano ancora per '+ex.join(' oppure ')+'.':'')+'</p>';
+    }
+    else{bal.className='bal warn';bal.innerHTML='<p>Mancano <b class="num">'+fmt(-left)+' g</b> crudi'+(f?' ('+fmt(-left*f)+' g cotti)':'')+': togli una porzione o cucinane di più.</p>'}
   }else{bal.className='bal';bal.innerHTML=''}
   const inv=num(C.inv);
   $('#c-invout').textContent=inv>0&&f?fmt(inv/f)+' g':'–';
@@ -998,7 +1017,9 @@ function bindC(id,set){$('#'+id).addEventListener('input',e=>{set(e.target.value
 bindC('c-food',v=>{C.food=v;if(!C.resaManual){C.resa=matchResa(v);$('#c-resa').value=C.resa}renderCalcChips()});
 bindC('c-crudo',v=>{C.crudo=v});bindC('c-cotto',v=>{C.cotto=v});
 bindC('c-vg',v=>{C.v.g=v});bindC('c-vn',v=>{C.v.n=v});bindC('c-ag',v=>{C.a.g=v});bindC('c-an',v=>{C.a.n=v});bindC('c-inv',v=>{C.inv=v});
-$('#c-resa').addEventListener('change',e=>{C.resa=e.target.value;C.resaManual=true;calcUpdate()});
+$('#c-resa').addEventListener('change',e=>{C.resa=e.target.value;C.resaManual=true;renderCalcChips();calcUpdate()});
+const busy=new Set();
+async function lockRun(id,fn){if(busy.has(id))return;busy.add(id);try{await fn()}finally{busy.delete(id)}}
 
 /* ---------- CALCOLI: totali ---------- */
 let T=lsGet('va-tot',null);
@@ -1394,7 +1415,9 @@ document.addEventListener('click',async e=>{
     case 'day-today':S.dayIdx=todayIdx();renderDieta(true);break;
     case 'q-clear':S.q='';dsearch.value='';renderDieta();dsearch.focus();break;
     case 'add-spesa':await addSpesa(b.dataset.name,'','','',S.person);break;
-    case 'c-chip':{const x=b.dataset.who==='vein'?'v':'a';C[x].g=b.dataset.g;if(!num(C[x].n))C[x].n='1';$('#c-'+x+'g').value=C[x].g;$('#c-'+x+'n').value=C[x].n;calcUpdate();break}
+    case 'c-chip':{const x=b.dataset.who==='vein'?'v':'a';C[x].g=b.dataset.g;$('#c-'+x+'g').value=C[x].g;calcUpdate();break}
+    case 'c-split':{const k=b.dataset.k;C.v.n=k;C.a.n=k;$('#c-vn').value=k;$('#c-an').value=k;calcUpdate();break}
+    case 'c-fill':{const x=b.dataset.x;C[x].n=b.dataset.k;$('#c-'+x+'n').value=b.dataset.k;calcUpdate();break}
     case 'save-scorta':await saveScortaFromCalc();break;
     case 'calc-reset':C=clone(CDEF);initCalc();break;
     case 'tot-add':T.push({food:'',v:{g:'',n:''},a:{g:'',n:''}});lsSet('va-tot',T);renderTot();{const el=$('#t-food-'+(T.length-1));if(el)el.focus()}break;
@@ -1402,9 +1425,9 @@ document.addEventListener('click',async e=>{
     case 'tot-chip':{const i=+b.dataset.row,x=b.dataset.who==='vein'?'v':'a';if(!T[i])break;T[i][x].g=b.dataset.g;if(!num(T[i][x].n))T[i][x].n='1';$('#t-'+x+'g-'+i).value=T[i][x].g;$('#t-'+x+'n-'+i).value=T[i][x].n;$('#t-out-'+i).innerHTML=totText(T[i]);lsSet('va-tot',T);break}
     case 'tot-spesa':{const r=T[+b.dataset.row];if(!r)break;const t=rowTotal(r);if(!r.food.trim()){toast('Scrivi prima l\'alimento');break}await addSpesa(r.food,t>=1000?fmt(t/1000,2):(t>0?fmt(t):''),t>=1000?'kg':(t>0?'g':''),'Totale per Vein e Andrus','entrambi');break}
     case 'tot-calc':{const r=T[+b.dataset.row];if(!r)break;C=Object.assign(clone(CDEF),{food:r.food,crudo:rowTotal(r)>0?String(Math.round(rowTotal(r))):'',resa:matchResa(r.food),v:{g:r.v.g,n:r.v.n},a:{g:r.a.g,n:r.a.n}});initCalc();$('#cc').scrollIntoView({behavior:'smooth',block:'start'});break}
-    case 'take':await takePortion(id,b.dataset.who);break;
-    case 'sc-sub':await subGrams(id);break;
-    case 'sc-undo':await undoLast(id);break;
+    case 'take':await lockRun(id,()=>takePortion(id,b.dataset.who));break;
+    case 'sc-sub':await lockRun(id,()=>subGrams(id));break;
+    case 'sc-undo':await lockRun(id,()=>undoLast(id));break;
     case 'sc-edit':S.editScorta=id;S.delAsk=null;renderScorte(true);break;
     case 'sc-cancel':S.editScorta=null;S.delAsk=null;renderScorte(true);break;
     case 'sc-save':await saveScortaEdit(id);break;
