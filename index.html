@@ -226,6 +226,9 @@ select.inp{padding-right:30px;background-image:linear-gradient(45deg,transparent
 .chips{display:flex;flex-wrap:wrap;gap:5px}
 .chip{border:1px solid var(--line);background:var(--surface-3);border-radius:999px;padding:4px 10px;font-size:12.5px;font-family:var(--f-num);font-weight:600;color:var(--fg)}
 .chip span{font-family:var(--f-body);color:var(--muted);font-weight:500;margin-left:3px}
+.pp.vein .chip.on{border-color:var(--vein);background:var(--vein-soft)}
+.pp.andrus .chip.on{border-color:var(--andrus);background:var(--andrus-soft)}
+.pp-warn{font-size:12.5px;color:var(--warn);margin:0}
 
 /* bilancia crudo/cotto */
 .scale{margin:14px 0;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:14px}
@@ -419,6 +422,7 @@ select.inp{padding-right:30px;background-image:linear-gradient(45deg,transparent
               <div class="field"><label for="c-vn">Porzioni</label><input id="c-vn" class="inp num" inputmode="numeric" autocomplete="off"></div>
             </div>
             <div class="chips" id="c-vchips"></div>
+            <p class="pp-warn" id="c-vwarn" hidden></p>
             <div class="pp-out" id="c-vout"></div>
           </div>
           <div class="pp andrus">
@@ -428,6 +432,7 @@ select.inp{padding-right:30px;background-image:linear-gradient(45deg,transparent
               <div class="field"><label for="c-an">Porzioni</label><input id="c-an" class="inp num" inputmode="numeric" autocomplete="off"></div>
             </div>
             <div class="chips" id="c-achips"></div>
+            <p class="pp-warn" id="c-awarn" hidden></p>
             <div class="pp-out" id="c-aout"></div>
           </div>
         </div>
@@ -963,17 +968,37 @@ function calcFactor(){
 function initCalc(){
   $('#c-food').value=C.food;$('#c-crudo').value=C.crudo;$('#c-cotto').value=C.cotto;$('#c-resa').value=C.resa;
   $('#c-vg').value=C.v.g;$('#c-vn').value=C.v.n;$('#c-ag').value=C.a.g;$('#c-an').value=C.a.n;$('#c-inv').value=C.inv;
-  renderCalcChips();calcUpdate();
+  renderCalcChips();autoDose('load');calcUpdate();
 }
 const RESA_Q={riso:'riso bianco',parboiled:'riso',integrale:'riso integrale',pasta:'pasta',uovo:"pasta all'uovo",ceci:'legumi',fagioli:'legumi',lenticchie:'legumi',pollo:'pollo',tacchino:'tacchino',merluzzo:'pesce bianco'};
+const calcQ=()=>(C.food||'').trim()||RESA_Q[C.resa]||'';
 function renderCalcChips(){
-  const q=(C.food||'').trim()||RESA_Q[C.resa]||'';
+  const q=calcQ();
   $('#c-vchips').innerHTML=chipsHTML(q,'vein','c-chip');
   $('#c-achips').innerHTML=chipsHTML(q,'andrus','c-chip');
+}
+const ALLDOSES={vein:new Set(),andrus:new Set()};FOODIDX.forEach(f=>ALLDOSES[f.who].add(f.g));
+// Mette la dose della dieta quando cambia l'alimento, o se nella casella è rimasta la dose di un altro alimento
+function autoDose(mode){
+  const q=calcQ();
+  [['v','vein'],['a','andrus']].forEach(([x,who])=>{
+    const ds=chipsFor(q,who).map(f=>f.g);if(!ds.length)return;
+    const cur=num(C[x].g);if(ds.includes(cur))return;
+    if(mode==='change'||!cur||ALLDOSES[who].has(cur)){C[x].g=String(ds[0]);$('#c-'+x+'g').value=C[x].g}
+  });
+}
+function markChips(){
+  [['v','vein'],['a','andrus']].forEach(([x])=>{
+    const cur=num(C[x].g);const chips=$$('#c-'+x+'chips .chip');let on=false;
+    chips.forEach(c=>{const m=num(c.dataset.g)===cur;c.classList.toggle('on',m);if(m)on=true});
+    const w=$('#c-'+x+'warn');
+    if(chips.length&&cur>0&&!on){w.hidden=false;w.textContent='Diversa dalla dieta: tocca la dose qui sopra per usarla.'}else{w.hidden=true;w.textContent=''}
+  });
 }
 function calcUpdate(){
   const crudo=num(C.crudo);const r=calcFactor();const f=r.f;
   $('#c-resa-f').hidden=num(C.cotto)>0;
+  markChips();
   const sc=$('#c-scale');
   if(f){
     let right='100 g crudi<br>= <b>'+fmt(100*f)+' g</b> cotti';
@@ -1014,10 +1039,10 @@ function calcUpdate(){
   lsSet('va-calc',C);
 }
 function bindC(id,set){$('#'+id).addEventListener('input',e=>{set(e.target.value);calcUpdate()})}
-bindC('c-food',v=>{C.food=v;if(!C.resaManual){C.resa=matchResa(v);$('#c-resa').value=C.resa}renderCalcChips()});
+bindC('c-food',v=>{C.food=v;if(!C.resaManual){C.resa=matchResa(v);$('#c-resa').value=C.resa}renderCalcChips();autoDose('change')});
 bindC('c-crudo',v=>{C.crudo=v});bindC('c-cotto',v=>{C.cotto=v});
 bindC('c-vg',v=>{C.v.g=v});bindC('c-vn',v=>{C.v.n=v});bindC('c-ag',v=>{C.a.g=v});bindC('c-an',v=>{C.a.n=v});bindC('c-inv',v=>{C.inv=v});
-$('#c-resa').addEventListener('change',e=>{C.resa=e.target.value;C.resaManual=true;renderCalcChips();calcUpdate()});
+$('#c-resa').addEventListener('change',e=>{C.resa=e.target.value;C.resaManual=true;renderCalcChips();autoDose('change');calcUpdate()});
 const busy=new Set();
 async function lockRun(id,fn){if(busy.has(id))return;busy.add(id);try{await fn()}finally{busy.delete(id)}}
 
