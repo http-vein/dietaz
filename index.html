@@ -250,6 +250,7 @@ select.inp{padding-right:30px;background-image:linear-gradient(45deg,transparent
 .bal{margin-top:12px;font-size:14px;padding:10px 12px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line-soft)}
 .bal.warn{color:var(--warn);background:var(--warn-soft);border-color:transparent}
 .bal:empty{display:none}
+.pp-ex{font-size:14px;font-weight:600;color:var(--muted);margin-left:6px;font-family:var(--f-num)}
 .bal-a{margin-top:9px;display:flex;gap:8px;flex-wrap:wrap}
 .inv{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;font-size:14px;color:var(--muted)}
 .inv .uw{width:110px}
@@ -1017,31 +1018,28 @@ function calcUpdate(){
   }else{
     sc.innerHTML='<div><span class="scale-l">Fattore</span><span class="scale-f dim">×–</span></div><div class="scale-r">Inserisci peso crudo e cotto<br>o scegli una resa indicativa</div>';
   }
-  [['v','vein'],['a','andrus']].forEach(x=>{
-    const g=num(C[x[0]].g),n=num(C[x[0]].n);const out=$('#c-'+x[0]+'out');
-    if(g>0&&f){const pc=Math.round(g*f);out.innerHTML=fmt(pc)+' g<small>cotti a porzione'+(n>0?' · '+fmt(n)+' porz. = '+fmt(pc*n)+' g':'')+'</small>'}
+  const P=f?calcPlan():null;
+  [['v','vein'],['a','andrus']].forEach(([x,w])=>{
+    const g=num(C[x].g);const out=$('#c-'+x+'out');
+    if(g>0&&P&&P.p.cnt[w]!=null){
+      const c=P.p.cnt[w],q=P.p.quota[w];const per=c>0?Math.round(q/c):0;const ex=per-P.base[w];
+      out.innerHTML=fmt(per)+' g'+(c>0&&Math.abs(ex)>=1?'<span class="pp-ex">'+(ex>0?'+':'−')+fmt(Math.abs(ex))+' g</span>':'')+'<small>cotti a porzione · '+c+' porz. = '+fmt(Math.round(q))+' g'+(Math.abs(ex)>=1?' · dose '+fmt(P.base[w])+' g':'')+'</small>';
+    }
+    else if(g>0&&f){out.innerHTML=fmt(Math.round(g*f))+' g<small>cotti a porzione · scrivi il peso crudo totale</small>'}
     else if(g>0){out.innerHTML='<small>Serve il fattore per il peso da cotto</small>'}
     else out.innerHTML='<small>Scegli la porzione da crudo</small>';
   });
-  const gV=num(C.v.g),gA=num(C.a.g),nV=num(C.v.n),nA=num(C.a.n);
-  const used=gV*nV+gA*nA;
   const bal=$('#c-bal');
-  const porz=(k,who)=>'<b class="num">'+k+'</b> '+(k===1?'porzione':'porzioni')+' di '+who;
-  if(crudo>0&&(gV>0||gA>0)&&!(nV>0)&&!(nA>0)){
-    const parts=[];
-    if(gV>0)parts.push(porz(Math.floor(crudo/gV),'Vein'));
-    if(gA>0)parts.push(porz(Math.floor(crudo/gA),'Andrus'));
-    let h='Con '+fmt(crudo)+' g crudi ci stanno '+parts.join(' oppure ');let btn='';
-    if(gV>0&&gA>0){const k=Math.floor(crudo/(gV+gA));h+=', oppure <b class="num">'+k+'</b> a testa';if(k>0)btn='<button type="button" class="btn sm" data-act="c-split" data-k="'+k+'">Metti '+k+' a testa</button>'}
-    else{const x=gV>0?'v':'a';const k=Math.floor(crudo/(gV||gA));if(k>0)btn='<button type="button" class="btn sm" data-act="c-fill" data-x="'+x+'" data-k="'+k+'">Metti '+k+' porzioni</button>'}
-    bal.className='bal';bal.innerHTML='<p>'+h+'.</p>'+(btn?'<div class="bal-a">'+btn+'</div>':'');
-  }else if(crudo>0&&used>0){
-    const left=crudo-used;
-    if(left>=0){
-      const ex=[];if(gV>0&&left>=gV)ex.push(porz(Math.floor(left/gV),'Vein'));if(gA>0&&left>=gA)ex.push(porz(Math.floor(left/gA),'Andrus'));
-      bal.className='bal';bal.innerHTML='<p>Porzioni: <b class="num">'+fmt(used)+' g</b> crudi su '+fmt(crudo)+' · avanzano <b class="num">'+fmt(left)+' g</b> crudi'+(f?' ('+fmt(left*f)+' g cotti)':'')+(ex.length?'. Bastano ancora per '+ex.join(' oppure ')+'.':'')+'</p>';
-    }
-    else{bal.className='bal warn';bal.innerHTML='<p>Mancano <b class="num">'+fmt(-left)+' g</b> crudi'+(f?' ('+fmt(-left*f)+' g cotti)':'')+': togli una porzione o cucinane di più.</p>'}
+  if(P){
+    const p=P.p,ws=p.ws;const pz=(k)=>'<b class="num">'+k+'</b> '+(k===1?'porzione':'porzioni');
+    let h=ws.length===2&&p.cnt.vein===p.cnt.andrus?pz(p.cnt.vein)+' a testa':ws.map(w=>pz(p.cnt[w])+' per '+NAME[w]).join(' e ');
+    h='Con '+fmt(P.T)+' g cotti: '+h;
+    const userSet=num(C.v.n)>0||num(C.a.n)>0;
+    if(p.added>0&&userSet)h+=' ('+(p.added===1?'1 in più':p.added+' in più')+' a testa rispetto alle previste)';
+    h+='.';
+    if(p.extra>=1)h+=' Avanzavano <b class="num">'+fmt(p.extra)+' g</b>: divisi a metà tra voi e sparsi sulle porzioni.';
+    else if(p.extra<=-1)h+=' Mancano <b class="num">'+fmt(-p.extra)+' g</b> per le porzioni previste: le porzioni vengono più piccole della dose.';
+    bal.className=p.extra<=-1?'bal warn':'bal';bal.innerHTML='<p>'+h+'</p>';
   }else{bal.className='bal';bal.innerHTML=''}
   const inv=num(C.inv);
   $('#c-invout').textContent=inv>0&&f?fmt(inv/f)+' g':'–';
@@ -1227,37 +1225,73 @@ function acctHTML(){
 /* ---------- SCORTE ---------- */
 function scBase(s){return num(s.crudo_g)>0?num(s.cotto_g)/num(s.crudo_g):0}
 function scFactor(s){return num(s.fattore)>0?num(s.fattore):scBase(s)}
-function scPortions(s){const f=scFactor(s),P={};['vein','andrus'].forEach(w=>{const pz=(s.porz&&s.porz[w])||{};if(num(pz.crudo)>0)P[w]=Math.round(num(pz.crudo)*f)});return P}
+const round1=x=>Math.round(x*10)/10;
+// Piano porzioni: porzioni intere uguali a testa; i grammi che avanzano si dividono a metà e si spargono sulle porzioni.
+// R = grammi cotti disponibili · base = {chi: g cotti della dose} · cnt = {chi: porzioni ancora previste}
+function planSplit(R,base,cnt){
+  const ws=['vein','andrus'].filter(w=>base[w]>0);
+  const c={};ws.forEach(w=>{c[w]=Math.max(0,Math.round(num(cnt&&cnt[w])))});
+  const pair=ws.reduce((a,w)=>a+base[w],0);
+  let D=R-ws.reduce((a,w)=>a+c[w]*base[w],0);let added=0;
+  if(pair>0)while(D>=pair-0.01){ws.forEach(w=>c[w]++);D-=pair;added++}
+  const q={};ws.forEach(w=>q[w]=c[w]*base[w]);
+  if(ws.length){
+    const share=D/ws.length;
+    ws.forEach(w=>{q[w]+=share;if(c[w]===0&&q[w]>0.5)c[w]=1});
+    ws.forEach(w=>{if(q[w]<0){const o=ws.find(x=>x!==w);if(o)q[o]=Math.max(0,q[o]+q[w]);q[w]=0}});
+  }
+  return {ws:ws,cnt:c,quota:q,added:added,extra:D};
+}
+function calcPlan(){
+  const r=calcFactor();const f=r.f;const crudo=num(C.crudo);
+  if(!f||!(crudo>0))return null;
+  const T=num(C.cotto)>0?num(C.cotto):crudo*f;
+  const base={};if(num(C.v.g)>0)base.vein=Math.round(num(C.v.g)*f);if(num(C.a.g)>0)base.andrus=Math.round(num(C.a.g)*f);
+  if(!Object.keys(base).length)return null;
+  return {f:f,T:T,base:base,p:planSplit(T,base,{vein:num(C.v.n),andrus:num(C.a.n)})};
+}
+function scBaseP(s){const f=scFactor(s),b={};['vein','andrus'].forEach(w=>{const pz=s.porz&&s.porz[w];if(pz&&num(pz.crudo)>0)b[w]=Math.round(num(pz.crudo)*f)});return b}
+const leftOf=p=>Math.max(0,num(p.n)-num(p.presi));
+function nextPortion(p){const r=leftOf(p),q=num(p.quota);if(q<=0)return 0;return r>1?Math.round(q/r):Math.round(q)}
+// porzioni della scorta con la quota di ciascuno (le scorte vecchie vengono ripianificate al volo)
+function scPlan(s,force){
+  const pz=clone(s.porz||{});const base=scBaseP(s);const ws=Object.keys(base);
+  if(force||!ws.every(w=>pz[w].quota!=null)){
+    const rem={};ws.forEach(w=>rem[w]=leftOf(pz[w]));
+    const p=planSplit(num(s.restante),base,rem);
+    ws.forEach(w=>{pz[w].n=num(pz[w].presi)+p.cnt[w];pz[w].quota=round1(p.quota[w])});
+  }
+  return {pz:pz,base:base,ws:ws};
+}
+const snap=s=>({restante:num(s.restante),porz:clone(s.porz||{}),fattore:s.fattore==null?null:num(s.fattore)});
 function scHTML(s){
   if(S.editScorta===s.id)return scEditHTML(s);
   const f=scFactor(s),f0=scBase(s);const rest=num(s.restante);const top=Math.max(num(s.cotto_g),rest);
   const pct=top>0?Math.max(0,Math.min(100,rest/top*100)):0;
-  const P=scPortions(s);const ks=Object.keys(P);
-  const rows=ks.map(w=>{
-    const pz=s.porz[w];const presi=num(pz.presi),n=num(pz.n);
-    return '<div class="pr '+w+'"><div class="pr-i"><b>'+NAME[w]+'</b><span>'+fmt(P[w])+' g cotti</span><span>da '+fmt(num(pz.crudo),1)+' g crudi</span></div><div class="pr-c"><span class="pr-cnt">'+presi+'</span><span>'+(presi===1?'presa':'prese')+(n>0?' su '+n:'')+'</span></div><button type="button" class="btn sm '+(w==='vein'?'v':'a')+'" data-act="take" data-id="'+esc(s.id)+'" data-who="'+w+'"'+(rest<=0?' disabled':'')+'>Prendi</button></div>';
+  const pl=scPlan(s);const id=esc(s.id);let anyEx=false;
+  const rows=pl.ws.map(w=>{
+    const p=pl.pz[w];const r=leftOf(p),q=num(p.quota),por=Math.min(nextPortion(p),rest),presi=num(p.presi);
+    const ex=por-pl.base[w];if(r>0&&Math.abs(ex)>=1)anyEx=true;
+    const main=r>0?fmt(por)+' g cotti':(q>=1?fmt(Math.round(q))+' g avanzati':'porzioni finite');
+    const sub='dose '+fmt(pl.base[w])+' g'+(r>0&&Math.abs(ex)>=1?' · '+(ex>0?'+':'−')+fmt(Math.abs(ex))+' g':'');
+    return '<div class="pr '+w+'"><div class="pr-i"><b>'+NAME[w]+'</b><span>'+main+'</span><span>'+sub+'</span></div><div class="pr-c"><span class="pr-cnt">'+r+'</span><span>'+(r===1?'rimasta':'rimaste')+(presi?' · prese '+presi:'')+'</span></div><button type="button" class="btn sm '+(w==='vein'?'v':'a')+'" data-act="take" data-id="'+id+'" data-who="'+w+'"'+(por<=0?' disabled':'')+'>Prendi</button></div>';
   }).join('');
+  const sumQ=pl.ws.reduce((a,w)=>a+num(pl.pz[w].quota),0);const un=rest-sumQ;
   let fit='';
-  if(rest>0&&ks.length){
-    const minP=Math.min.apply(null,ks.map(w=>P[w]));
-    if(rest<minP)fit='Resta meno di una porzione intera: prendi tutto quello che c\'è.';
-    else{
-      fit='Bastano per '+ks.map(w=>{const k=Math.floor(rest/P[w]);return '<b>'+k+'</b> '+(k===1?'porzione':'porzioni')+' di '+NAME[w]}).join(' oppure ');
-      if(ks.length===2){const k=Math.floor(rest/(P.vein+P.andrus));if(k>0)fit+=', oppure <b>'+k+'</b> a testa'}
-      fit+='.';
-    }
-  }
+  if(rest>0&&Math.abs(un)>=2)fit=(un>0?fmt(un)+' g non assegnati':'Mancano '+fmt(-un)+' g rispetto alle porzioni')+' · <button type="button" class="link" data-act="sc-replan" data-id="'+id+'">Ridividi a metà</button>';
+  else if(anyEx)fit='I grammi in più sono divisi a metà tra voi e sparsi sulle porzioni.';
   const log=s.log||[];const last=log[log.length-1];
   const lastTxt=!last?'Ancora nessuna porzione presa':last.tipo==='ripesa'?'Ultima: ripesata '+fmt(num(last.da))+' → '+fmt(num(last.da)-num(last.g))+' g · '+ago(last.t):'Ultima: '+(last.chi?NAME[last.chi]:'senza nome')+' −'+fmt(num(last.g))+' g · '+ago(last.t);
-  const id=esc(s.id);const open=S.scMore===s.id;
+  const open=S.scMore===s.id;
   const tools=open&&rest>0?'<div class="sc-tools">'
     +'<div class="sc-tool"><p><b>Ripesa.</b> In frigo il cibo perde acqua: pesa quello che resta, senza contenitore, e le porzioni si ricalcolano.</p><div class="sc-sub2"><div class="uw"><input id="sc-w8-'+id+'" class="inp num" inputmode="decimal" autocomplete="off" placeholder="Peso adesso" aria-label="Peso attuale senza contenitore"><span class="u">g</span></div><button type="button" class="btn sm" data-act="sc-reweigh" data-id="'+id+'">Ripesa</button></div></div>'
-    +'<div class="sc-tool"><p><b>Togli grammi a mano.</b> Per una porzione diversa dal solito.</p><div class="sc-sub"><div class="uw"><input id="sc-g-'+id+'" class="inp num" inputmode="decimal" autocomplete="off" placeholder="Grammi" aria-label="Grammi da togliere"><span class="u">g</span></div><select id="sc-w-'+id+'" class="inp" aria-label="Chi li prende"><option value="vein"'+(S.person==='vein'?' selected':'')+'>Vein</option><option value="andrus"'+(S.person==='andrus'?' selected':'')+'>Andrus</option><option value="">Nessuno</option></select><button type="button" class="btn sm" data-act="sc-sub" data-id="'+id+'">Togli</button></div></div>'
+    +'<div class="sc-tool"><p><b>Togli grammi a mano.</b> Per una porzione diversa dal solito: i grammi si tolgono dalle porzioni di chi li prende.</p><div class="sc-sub"><div class="uw"><input id="sc-g-'+id+'" class="inp num" inputmode="decimal" autocomplete="off" placeholder="Grammi" aria-label="Grammi da togliere"><span class="u">g</span></div><select id="sc-w-'+id+'" class="inp" aria-label="Chi li prende"><option value="vein"'+(S.person==='vein'?' selected':'')+'>Vein</option><option value="andrus"'+(S.person==='andrus'?' selected':'')+'>Andrus</option><option value="">Nessuno</option></select><button type="button" class="btn sm" data-act="sc-sub" data-id="'+id+'">Togli</button></div></div>'
+    +'<div class="sc-tool"><p><b>Ricalcola.</b> Rifà le porzioni con quello che resta: intere uguali a testa, il resto diviso a metà. <button type="button" class="link" data-act="sc-replan" data-id="'+id+'">Ricalcola</button></p></div>'
     +'</div>':'';
   return '<article class="sc'+(rest<=0?' finita':'')+'"><div class="sc-top"><div><h3>'+esc(s.nome||'Scorta')+'</h3><p class="sc-meta">'+dateShort(s.creato)+' · '+fmt(num(s.crudo_g))+' g crudi → '+fmt(num(s.cotto_g))+' g cotti'+(s.stimato?' (stima)':'')+' · ×'+fmt(f0,2)+(Math.abs(f-f0)>0.005?' · dopo la ripesata ×'+fmt(f,2):'')+'</p></div><button type="button" class="btn sm ghost" data-act="sc-edit" data-id="'+id+'">Modifica</button></div>'
     +'<div><div class="sc-num"><span class="sc-big">'+fmt(rest)+'</span><span class="sc-u">'+(rest<=0?'g · finita':'g cotti rimasti')+'</span></div><div class="sc-bar"><i style="width:'+pct.toFixed(1)+'%"></i></div>'+(fit?'<p class="sc-fit">'+fit+'</p>':'')+'</div>'
     +rows
-    +(rest>0?'<div><button type="button" class="link" data-act="sc-more" data-id="'+id+'" aria-expanded="'+open+'">'+(open?'Chiudi':'Ripesa o togli grammi a mano')+'</button></div>':'')
+    +(rest>0?'<div><button type="button" class="link" data-act="sc-more" data-id="'+id+'" aria-expanded="'+open+'">'+(open?'Chiudi':'Ripesa, togli grammi o ricalcola')+'</button></div>':'')
     +tools
     +'<div class="sc-foot"><span>'+esc(lastTxt)+'</span>'+(last?'<button type="button" class="link" data-act="sc-undo" data-id="'+id+'">Annulla</button>':(rest<=0?'<button type="button" class="link" data-act="sc-edit" data-id="'+id+'">Elimina</button>':''))+'</div></article>';
 }
@@ -1267,9 +1301,10 @@ function scEditHTML(s){
   return '<article class="sc"><h3>Modifica scorta</h3><div class="stack">'
     +'<div class="field"><label for="es-nome">Nome</label><input id="es-nome" class="inp" autocomplete="off" value="'+esc(s.nome)+'"></div>'
     +'<div class="g2">'+fld('es-crudo','Peso crudo',s.crudo_g,'g')+fld('es-cotto','Peso cotto',s.cotto_g,'g')+'</div>'
-    +'<div class="g2">'+fld('es-vg','Vein: porzione da crudo',pv.crudo||'','g')+fld('es-vn','Vein: porzioni previste',pv.n||'')+'</div>'
-    +'<div class="g2">'+fld('es-ag','Andrus: porzione da crudo',pa.crudo||'','g')+fld('es-an','Andrus: porzioni previste',pa.n||'')+'</div>'
+    +'<div class="g2">'+fld('es-vg','Vein: porzione da crudo',pv.crudo||'','g')+fld('es-vn','Vein: porzioni in tutto',pv.n||'')+'</div>'
+    +'<div class="g2">'+fld('es-ag','Andrus: porzione da crudo',pa.crudo||'','g')+fld('es-an','Andrus: porzioni in tutto',pa.n||'')+'</div>'
     +fld('es-rest','Grammi cotti rimasti',s.restante,'g')
+    +'<p class="muted small">Al salvataggio le porzioni si rifanno: intere uguali a testa, il resto diviso a metà.</p>'
     +'</div><div class="actions"><button type="button" class="btn pri" data-act="sc-save" data-id="'+id+'">Salva</button><button type="button" class="btn ghost" data-act="sc-cancel">Annulla</button>'
     +(S.delAsk===s.id?'<span class="confirm">Eliminarla davvero? <button type="button" class="btn sm dng" data-act="sc-del-yes" data-id="'+id+'">Elimina</button><button type="button" class="btn sm ghost" data-act="sc-del-no">No</button></span>':'<button type="button" class="btn ghost dng" data-act="sc-del" data-id="'+id+'">Elimina scorta</button>')
     +'</div></article>';
@@ -1283,15 +1318,23 @@ function renderScorte(fresh){
   if(fresh)draw();else preserve(list,draw);
 }
 function getScorta(id){return cache.scorte.find(s=>s.id===id)}
+const pushLog=(s,e)=>(s.log||[]).concat([e]).slice(-30);
 async function takePortion(id,who){
   const s=await freshScorta(id);if(!s)return;
-  const f=scFactor(s);const pz=clone(s.porz||{});pz[who]=Object.assign({crudo:0,n:0,presi:0},pz[who]);
-  const portion=Math.round(num(pz[who].crudo)*f);const rest=num(s.restante);
-  const g=Math.min(portion,rest);
-  if(g<=0){toast('Scorta finita');return}
-  pz[who].presi=num(pz[who].presi)+1;
-  const log=(s.log||[]).concat([{chi:who,g:g,t:Date.now(),p:1}]).slice(-30);
-  if(await updDoc('scorte',id,{porz:pz,restante:rest-g,log:log,agg:Date.now()}))toast(NAME[who]+': −'+fmt(g)+' g · restano '+fmt(rest-g)+' g');
+  const pl=scPlan(s);const p=pl.pz[who];if(!p){toast(NAME[who]+' non ha porzioni in questa scorta');return}
+  const rest=num(s.restante);const g=Math.min(nextPortion(p),rest);
+  if(g<=0){toast(NAME[who]+': porzioni finite');return}
+  const prev=snap(s);
+  if(leftOf(p)===0)p.n=num(p.n)+1;
+  p.presi=num(p.presi)+1;p.quota=round1(Math.max(0,num(p.quota)-g));
+  if(await updDoc('scorte',id,{porz:pl.pz,restante:rest-g,log:pushLog(s,{chi:who,g:g,t:Date.now(),p:1,prev:prev}),agg:Date.now()}))toast(NAME[who]+': −'+fmt(g)+' g · restano '+fmt(rest-g)+' g');
+}
+// toglie g dalla quota di chi li prende (o a metà se nessuno); quello che manca passa all'altro
+function takeFromQuota(pz,ws,who,g){
+  const others=w=>ws.filter(x=>x!==w);
+  const sub=(w,x)=>{pz[w].quota=num(pz[w].quota)-x;if(pz[w].quota<0){const o=others(w)[0];const over=-pz[w].quota;pz[w].quota=0;if(o)pz[o].quota=Math.max(0,num(pz[o].quota)-over)}};
+  if(who&&pz[who]&&ws.includes(who))sub(who,g);else ws.forEach(w=>sub(w,g/ws.length));
+  ws.forEach(w=>{pz[w].quota=round1(num(pz[w].quota))});
 }
 async function subGrams(id){
   const s=await freshScorta(id);if(!s)return;
@@ -1300,9 +1343,14 @@ async function subGrams(id){
   const w=(document.getElementById('sc-w-'+id)||{}).value||'';
   const rest=num(s.restante);const take=Math.min(g,rest);
   if(take<=0){toast('Scorta finita');return}
+  const prev=snap(s);const pl=scPlan(s);takeFromQuota(pl.pz,pl.ws,w,take);
   if(inp)inp.value='';
-  const log=(s.log||[]).concat([{chi:w,g:take,t:Date.now(),p:0}]).slice(-30);
-  if(await updDoc('scorte',id,{restante:rest-take,log:log,agg:Date.now()}))toast('−'+fmt(take)+' g · restano '+fmt(rest-take)+' g');
+  if(await updDoc('scorte',id,{porz:pl.pz,restante:rest-take,log:pushLog(s,{chi:w,g:take,t:Date.now(),p:0,prev:prev}),agg:Date.now()}))toast('−'+fmt(take)+' g · restano '+fmt(rest-take)+' g');
+}
+async function replan(id){
+  const s=await freshScorta(id);if(!s)return;
+  const pl=scPlan(s,true);
+  if(await updDoc('scorte',id,{porz:pl.pz,log:pushLog(s,{tipo:'piano',chi:'',g:0,t:Date.now(),p:0,prev:snap(s)}),agg:Date.now()}))toast('Porzioni ricalcolate');
 }
 async function reweigh(id){
   const s=await freshScorta(id);if(!s)return;
@@ -1311,26 +1359,30 @@ async function reweigh(id){
   const W=Math.round(num(raw));const rest=num(s.restante);
   if(!(rest>0)){toast('La scorta è finita');return}
   if(W===rest){toast('Il peso è già '+fmt(W)+' g');return}
-  const f=scFactor(s);const nf=W>0?f*W/rest:f;
-  const log=(s.log||[]).concat([{tipo:'ripesa',g:rest-W,da:rest,f:f,t:Date.now(),chi:'',p:0}]).slice(-30);
-  if(await updDoc('scorte',id,{restante:W,fattore:nf,log:log,agg:Date.now()})){
+  const prev=snap(s);const f=scFactor(s);const nf=W>0?f*W/rest:f;const k=W/rest;
+  const pl=scPlan(s);pl.ws.forEach(w=>{pl.pz[w].quota=round1(num(pl.pz[w].quota)*k)});
+  if(await updDoc('scorte',id,{restante:W,fattore:nf,porz:pl.pz,log:pushLog(s,{tipo:'ripesa',g:rest-W,da:rest,f:f,t:Date.now(),chi:'',p:0,prev:prev}),agg:Date.now()})){
     if(inp)inp.value='';
-    const P=scPortions(Object.assign({},s,{fattore:nf}));
-    const pt=Object.keys(P).map(w=>NAME[w]+' '+fmt(P[w])+' g').join(' · ');
+    const pt=pl.ws.filter(w=>leftOf(pl.pz[w])>0).map(w=>NAME[w]+' '+fmt(nextPortion(pl.pz[w]))+' g').join(' · ');
     toast(W>rest*1.25?'Ripesata: '+fmt(W)+' g. Hai tolto il contenitore? Puoi annullare':'Ripesata: '+fmt(W)+' g'+(pt?' · ora '+pt+' a porzione':''));
   }
 }
 async function undoLast(id){
   const s=await freshScorta(id);if(!s||!s.log||!s.log.length)return;
   const log=s.log.slice();const last=log.pop();
+  if(last.prev){
+    const pv=last.prev;
+    if(await updDoc('scorte',id,{restante:num(pv.restante),porz:pv.porz,fattore:pv.fattore==null?null:num(pv.fattore),log:log,agg:Date.now()}))toast(last.tipo==='ripesa'?'Ripesata annullata':last.tipo==='piano'?'Ricalcolo annullato':'Annullato: +'+fmt(num(last.g))+' g');
+    return;
+  }
   if(last.tipo==='ripesa'){
     if(await updDoc('scorte',id,{restante:num(last.da),fattore:num(last.f)>0?num(last.f):null,log:log,agg:Date.now()}))toast('Ripesata annullata: di nuovo '+fmt(num(last.da))+' g');
     return;
   }
   const pz=clone(s.porz||{});
   if(last.p&&last.chi&&pz[last.chi])pz[last.chi].presi=Math.max(0,num(pz[last.chi].presi)-1);
-  const rest=num(s.restante)+num(last.g);
-  if(await updDoc('scorte',id,{porz:pz,restante:rest,log:log,agg:Date.now()}))toast('Annullato: +'+fmt(num(last.g))+' g');
+  ['vein','andrus'].forEach(w=>{if(pz[w])delete pz[w].quota});
+  if(await updDoc('scorte',id,{porz:pz,restante:num(s.restante)+num(last.g),log:log,agg:Date.now()}))toast('Annullato: +'+fmt(num(last.g))+' g');
 }
 async function saveScortaEdit(id){
   const s=getScorta(id);if(!s)return;
@@ -1342,7 +1394,7 @@ async function saveScortaEdit(id){
   if(changedBase&&rest===num(s.restante)){
     // tengo uguale quanto è già stato mangiato
     const L=s.log||[];
-    const eaten=L.length<30?L.filter(e=>e.tipo!=='ripesa').reduce((a,e)=>a+num(e.g),0):num(s.cotto_g)-num(s.restante);
+    const eaten=L.length<30?L.filter(e=>e.tipo!=='ripesa'&&e.tipo!=='piano').reduce((a,e)=>a+num(e.g),0):num(s.cotto_g)-num(s.restante);
     rest=cotto-eaten;
   }
   const pz=clone(s.porz||{});
@@ -1350,6 +1402,7 @@ async function saveScortaEdit(id){
   pz.andrus=Object.assign({presi:0},pz.andrus,{crudo:num(v('es-ag')),n:Math.round(num(v('es-an')))});
   const data={nome:(v('es-nome')||'').trim()||'Scorta',crudo_g:crudo,cotto_g:cotto,stimato:s.stimato&&cotto===num(s.cotto_g),porz:pz,restante:Math.max(0,Math.round(rest)),agg:Date.now()};
   if(changedBase)data.fattore=null;
+  data.porz=scPlan(Object.assign({},s,data),true).pz;
   if(await updDoc('scorte',id,data)){S.editScorta=null;S.delAsk=null;renderScorte(true);toast('Scorta aggiornata')}
 }
 async function saveScortaFromCalc(){
@@ -1357,9 +1410,9 @@ async function saveScortaFromCalc(){
   if(!(crudo>0)){toast('Scrivi il peso crudo totale');$('#c-crudo').focus();return}
   let cot=cotto,stim=false;
   if(!(cot>0)){if(r){cot=Math.round(crudo*r.f);stim=true}else{toast('Scrivi il peso cotto o scegli una resa');$('#c-cotto').focus();return}}
-  const doc={nome:(C.food||'').trim()||'Scorta',crudo_g:crudo,cotto_g:cot,stimato:stim,
-    porz:{vein:{crudo:num(C.v.g),n:Math.round(num(C.v.n)),presi:0},andrus:{crudo:num(C.a.g),n:Math.round(num(C.a.n)),presi:0}},
-    restante:cot,log:[],creato:Date.now(),agg:Date.now()};
+  const porz={vein:{crudo:num(C.v.g),n:Math.round(num(C.v.n)),presi:0},andrus:{crudo:num(C.a.g),n:Math.round(num(C.a.n)),presi:0}};
+  const doc={nome:(C.food||'').trim()||'Scorta',crudo_g:crudo,cotto_g:cot,stimato:stim,porz:porz,restante:cot,log:[],creato:Date.now(),agg:Date.now()};
+  doc.porz=scPlan(doc,true).pz;
   if(await addDoc('scorte',doc)){toast('Scorta salvata');location.hash='#scorte'}
 }
 
@@ -1510,6 +1563,7 @@ document.addEventListener('click',async e=>{
     case 'sc-undo':await lockRun(id,()=>undoLast(id));break;
     case 'sc-more':S.scMore=S.scMore===id?null:id;renderScorte(false);break;
     case 'sc-reweigh':await lockRun(id,()=>reweigh(id));break;
+    case 'sc-replan':await lockRun(id,()=>replan(id));break;
     case 'sc-edit':S.editScorta=id;S.delAsk=null;renderScorte(true);break;
     case 'sc-cancel':S.editScorta=null;S.delAsk=null;renderScorte(true);break;
     case 'sc-save':await saveScortaEdit(id);break;
