@@ -284,11 +284,20 @@ select.inp{padding-right:30px;background-image:linear-gradient(45deg,transparent
 .pr.vein{background:var(--vein-soft)}.pr.andrus{background:var(--andrus-soft)}
 .pr-i b{display:block;font-size:15px}
 .pr.vein .pr-i b{color:var(--vein)}.pr.andrus .pr-i b{color:var(--andrus)}
-.pr-i span{font-size:12.5px;color:var(--muted);font-family:var(--f-num)}
+.pr-i span{display:block;font-size:12.5px;color:var(--muted);font-family:var(--f-num)}
+.pr-i span:nth-of-type(1){color:var(--fg)}
 .pr-c{text-align:right;line-height:1.1}
 .pr-cnt{font-family:var(--f-num);font-weight:600;font-size:20px}
 .pr-c span:last-child{display:block;font-size:11px;color:var(--muted)}
 .sc-sub{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.9fr) auto;gap:6px;align-items:center}
+.sc-sub2{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}
+.sc-sub .inp,.sc-sub2 .inp{padding:8px 10px;font-size:15px}
+.sc-fit{font-size:13.5px;color:var(--muted);margin-top:9px}
+.sc-fit b{color:var(--fg);font-family:var(--f-num);font-weight:600}
+.sc-tools{display:grid;gap:14px;padding:12px;border-radius:12px;background:var(--surface-2);border:1px solid var(--line-soft)}
+.sc-tool{display:grid;gap:7px}
+.sc-tool p{font-size:12.5px;color:var(--muted)}
+.sc-tool p b{color:var(--fg)}
 .sc-sub .inp{padding:8px 10px;font-size:15px}
 .sc-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--line-soft);padding-top:10px}
 .confirm{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;color:var(--danger);font-size:13.5px;font-weight:600}
@@ -1216,22 +1225,40 @@ function acctHTML(){
 }
 
 /* ---------- SCORTE ---------- */
-function scFactor(s){return num(s.crudo_g)>0?num(s.cotto_g)/num(s.crudo_g):0}
+function scBase(s){return num(s.crudo_g)>0?num(s.cotto_g)/num(s.crudo_g):0}
+function scFactor(s){return num(s.fattore)>0?num(s.fattore):scBase(s)}
+function scPortions(s){const f=scFactor(s),P={};['vein','andrus'].forEach(w=>{const pz=(s.porz&&s.porz[w])||{};if(num(pz.crudo)>0)P[w]=Math.round(num(pz.crudo)*f)});return P}
 function scHTML(s){
   if(S.editScorta===s.id)return scEditHTML(s);
-  const f=scFactor(s);const rest=num(s.restante);const pct=num(s.cotto_g)>0?Math.max(0,Math.min(100,rest/num(s.cotto_g)*100)):0;
-  const rows=['vein','andrus'].map(w=>{
-    const pz=(s.porz&&s.porz[w])||{};if(!(num(pz.crudo)>0))return '';
-    const portion=Math.round(num(pz.crudo)*f);const left=Math.max(0,num(pz.n)-num(pz.presi));
-    return '<div class="pr '+w+'"><div class="pr-i"><b>'+NAME[w]+'</b><span>'+fmt(portion)+' g cotti · '+fmt(num(pz.crudo),1)+' g crudi</span></div><div class="pr-c"><span class="pr-cnt">'+left+'</span><span>di '+fmt(num(pz.n))+' rimaste</span></div><button type="button" class="btn sm '+(w==='vein'?'v':'a')+'" data-act="take" data-id="'+esc(s.id)+'" data-who="'+w+'"'+(rest<=0?' disabled':'')+'>Prendi</button></div>';
+  const f=scFactor(s),f0=scBase(s);const rest=num(s.restante);const top=Math.max(num(s.cotto_g),rest);
+  const pct=top>0?Math.max(0,Math.min(100,rest/top*100)):0;
+  const P=scPortions(s);const ks=Object.keys(P);
+  const rows=ks.map(w=>{
+    const pz=s.porz[w];const presi=num(pz.presi),n=num(pz.n);
+    return '<div class="pr '+w+'"><div class="pr-i"><b>'+NAME[w]+'</b><span>'+fmt(P[w])+' g cotti</span><span>da '+fmt(num(pz.crudo),1)+' g crudi</span></div><div class="pr-c"><span class="pr-cnt">'+presi+'</span><span>'+(presi===1?'presa':'prese')+(n>0?' su '+n:'')+'</span></div><button type="button" class="btn sm '+(w==='vein'?'v':'a')+'" data-act="take" data-id="'+esc(s.id)+'" data-who="'+w+'"'+(rest<=0?' disabled':'')+'>Prendi</button></div>';
   }).join('');
+  let fit='';
+  if(rest>0&&ks.length){
+    const minP=Math.min.apply(null,ks.map(w=>P[w]));
+    if(rest<minP)fit='Resta meno di una porzione intera: prendi tutto quello che c\'è.';
+    else{
+      fit='Bastano per '+ks.map(w=>{const k=Math.floor(rest/P[w]);return '<b>'+k+'</b> '+(k===1?'porzione':'porzioni')+' di '+NAME[w]}).join(' oppure ');
+      if(ks.length===2){const k=Math.floor(rest/(P.vein+P.andrus));if(k>0)fit+=', oppure <b>'+k+'</b> a testa'}
+      fit+='.';
+    }
+  }
   const log=s.log||[];const last=log[log.length-1];
-  const lastTxt=last?'Ultima: '+(last.chi?NAME[last.chi]:'senza nome')+' −'+fmt(num(last.g))+' g · '+ago(last.t):'Ancora nessuna porzione presa';
-  const id=esc(s.id);
-  return '<article class="sc'+(rest<=0?' finita':'')+'"><div class="sc-top"><div><h3>'+esc(s.nome||'Scorta')+'</h3><p class="sc-meta">'+dateShort(s.creato)+' · '+fmt(num(s.crudo_g))+' g crudi → '+fmt(num(s.cotto_g))+' g cotti'+(s.stimato?' (stima)':'')+' · ×'+fmt(f,2)+'</p></div><button type="button" class="btn sm ghost" data-act="sc-edit" data-id="'+id+'">Modifica</button></div>'
-    +'<div><div class="sc-num"><span class="sc-big">'+fmt(rest)+'</span><span class="sc-u">'+(rest<=0?'g · finita':'g cotti rimasti')+'</span></div><div class="sc-bar"><i style="width:'+pct.toFixed(1)+'%"></i></div></div>'
+  const lastTxt=!last?'Ancora nessuna porzione presa':last.tipo==='ripesa'?'Ultima: ripesata '+fmt(num(last.da))+' → '+fmt(num(last.da)-num(last.g))+' g · '+ago(last.t):'Ultima: '+(last.chi?NAME[last.chi]:'senza nome')+' −'+fmt(num(last.g))+' g · '+ago(last.t);
+  const id=esc(s.id);const open=S.scMore===s.id;
+  const tools=open&&rest>0?'<div class="sc-tools">'
+    +'<div class="sc-tool"><p><b>Ripesa.</b> In frigo il cibo perde acqua: pesa quello che resta, senza contenitore, e le porzioni si ricalcolano.</p><div class="sc-sub2"><div class="uw"><input id="sc-w8-'+id+'" class="inp num" inputmode="decimal" autocomplete="off" placeholder="Peso adesso" aria-label="Peso attuale senza contenitore"><span class="u">g</span></div><button type="button" class="btn sm" data-act="sc-reweigh" data-id="'+id+'">Ripesa</button></div></div>'
+    +'<div class="sc-tool"><p><b>Togli grammi a mano.</b> Per una porzione diversa dal solito.</p><div class="sc-sub"><div class="uw"><input id="sc-g-'+id+'" class="inp num" inputmode="decimal" autocomplete="off" placeholder="Grammi" aria-label="Grammi da togliere"><span class="u">g</span></div><select id="sc-w-'+id+'" class="inp" aria-label="Chi li prende"><option value="vein"'+(S.person==='vein'?' selected':'')+'>Vein</option><option value="andrus"'+(S.person==='andrus'?' selected':'')+'>Andrus</option><option value="">Nessuno</option></select><button type="button" class="btn sm" data-act="sc-sub" data-id="'+id+'">Togli</button></div></div>'
+    +'</div>':'';
+  return '<article class="sc'+(rest<=0?' finita':'')+'"><div class="sc-top"><div><h3>'+esc(s.nome||'Scorta')+'</h3><p class="sc-meta">'+dateShort(s.creato)+' · '+fmt(num(s.crudo_g))+' g crudi → '+fmt(num(s.cotto_g))+' g cotti'+(s.stimato?' (stima)':'')+' · ×'+fmt(f0,2)+(Math.abs(f-f0)>0.005?' · dopo la ripesata ×'+fmt(f,2):'')+'</p></div><button type="button" class="btn sm ghost" data-act="sc-edit" data-id="'+id+'">Modifica</button></div>'
+    +'<div><div class="sc-num"><span class="sc-big">'+fmt(rest)+'</span><span class="sc-u">'+(rest<=0?'g · finita':'g cotti rimasti')+'</span></div><div class="sc-bar"><i style="width:'+pct.toFixed(1)+'%"></i></div>'+(fit?'<p class="sc-fit">'+fit+'</p>':'')+'</div>'
     +rows
-    +'<div class="sc-sub"><div class="uw"><input id="sc-g-'+id+'" class="inp num" inputmode="decimal" autocomplete="off" placeholder="Togli grammi" aria-label="Grammi da togliere"><span class="u">g</span></div><select id="sc-w-'+id+'" class="inp" aria-label="Chi li prende"><option value="vein"'+(S.person==='vein'?' selected':'')+'>Vein</option><option value="andrus"'+(S.person==='andrus'?' selected':'')+'>Andrus</option><option value="">Nessuno</option></select><button type="button" class="btn sm" data-act="sc-sub" data-id="'+id+'">Togli</button></div>'
+    +(rest>0?'<div><button type="button" class="link" data-act="sc-more" data-id="'+id+'" aria-expanded="'+open+'">'+(open?'Chiudi':'Ripesa o togli grammi a mano')+'</button></div>':'')
+    +tools
     +'<div class="sc-foot"><span>'+esc(lastTxt)+'</span>'+(last?'<button type="button" class="link" data-act="sc-undo" data-id="'+id+'">Annulla</button>':(rest<=0?'<button type="button" class="link" data-act="sc-edit" data-id="'+id+'">Elimina</button>':''))+'</div></article>';
 }
 function scEditHTML(s){
@@ -1240,8 +1267,8 @@ function scEditHTML(s){
   return '<article class="sc"><h3>Modifica scorta</h3><div class="stack">'
     +'<div class="field"><label for="es-nome">Nome</label><input id="es-nome" class="inp" autocomplete="off" value="'+esc(s.nome)+'"></div>'
     +'<div class="g2">'+fld('es-crudo','Peso crudo',s.crudo_g,'g')+fld('es-cotto','Peso cotto',s.cotto_g,'g')+'</div>'
-    +'<div class="g2">'+fld('es-vg','Vein: porzione da crudo',pv.crudo||'','g')+fld('es-vn','Vein: porzioni',pv.n||'')+'</div>'
-    +'<div class="g2">'+fld('es-ag','Andrus: porzione da crudo',pa.crudo||'','g')+fld('es-an','Andrus: porzioni',pa.n||'')+'</div>'
+    +'<div class="g2">'+fld('es-vg','Vein: porzione da crudo',pv.crudo||'','g')+fld('es-vn','Vein: porzioni previste',pv.n||'')+'</div>'
+    +'<div class="g2">'+fld('es-ag','Andrus: porzione da crudo',pa.crudo||'','g')+fld('es-an','Andrus: porzioni previste',pa.n||'')+'</div>'
     +fld('es-rest','Grammi cotti rimasti',s.restante,'g')
     +'</div><div class="actions"><button type="button" class="btn pri" data-act="sc-save" data-id="'+id+'">Salva</button><button type="button" class="btn ghost" data-act="sc-cancel">Annulla</button>'
     +(S.delAsk===s.id?'<span class="confirm">Eliminarla davvero? <button type="button" class="btn sm dng" data-act="sc-del-yes" data-id="'+id+'">Elimina</button><button type="button" class="btn sm ghost" data-act="sc-del-no">No</button></span>':'<button type="button" class="btn ghost dng" data-act="sc-del" data-id="'+id+'">Elimina scorta</button>')
@@ -1277,11 +1304,32 @@ async function subGrams(id){
   const log=(s.log||[]).concat([{chi:w,g:take,t:Date.now(),p:0}]).slice(-30);
   if(await updDoc('scorte',id,{restante:rest-take,log:log,agg:Date.now()}))toast('−'+fmt(take)+' g · restano '+fmt(rest-take)+' g');
 }
+async function reweigh(id){
+  const s=await freshScorta(id);if(!s)return;
+  const inp=document.getElementById('sc-w8-'+id);const raw=String((inp&&inp.value)||'').trim();
+  if(!raw){toast('Scrivi quanto pesa adesso');return}
+  const W=Math.round(num(raw));const rest=num(s.restante);
+  if(!(rest>0)){toast('La scorta è finita');return}
+  if(W===rest){toast('Il peso è già '+fmt(W)+' g');return}
+  const f=scFactor(s);const nf=W>0?f*W/rest:f;
+  const log=(s.log||[]).concat([{tipo:'ripesa',g:rest-W,da:rest,f:f,t:Date.now(),chi:'',p:0}]).slice(-30);
+  if(await updDoc('scorte',id,{restante:W,fattore:nf,log:log,agg:Date.now()})){
+    if(inp)inp.value='';
+    const P=scPortions(Object.assign({},s,{fattore:nf}));
+    const pt=Object.keys(P).map(w=>NAME[w]+' '+fmt(P[w])+' g').join(' · ');
+    toast(W>rest*1.25?'Ripesata: '+fmt(W)+' g. Hai tolto il contenitore? Puoi annullare':'Ripesata: '+fmt(W)+' g'+(pt?' · ora '+pt+' a porzione':''));
+  }
+}
 async function undoLast(id){
   const s=await freshScorta(id);if(!s||!s.log||!s.log.length)return;
-  const log=s.log.slice();const last=log.pop();const pz=clone(s.porz||{});
+  const log=s.log.slice();const last=log.pop();
+  if(last.tipo==='ripesa'){
+    if(await updDoc('scorte',id,{restante:num(last.da),fattore:num(last.f)>0?num(last.f):null,log:log,agg:Date.now()}))toast('Ripesata annullata: di nuovo '+fmt(num(last.da))+' g');
+    return;
+  }
+  const pz=clone(s.porz||{});
   if(last.p&&last.chi&&pz[last.chi])pz[last.chi].presi=Math.max(0,num(pz[last.chi].presi)-1);
-  const rest=Math.min(num(s.cotto_g),num(s.restante)+num(last.g));
+  const rest=num(s.restante)+num(last.g);
   if(await updDoc('scorte',id,{porz:pz,restante:rest,log:log,agg:Date.now()}))toast('Annullato: +'+fmt(num(last.g))+' g');
 }
 async function saveScortaEdit(id){
@@ -1290,11 +1338,18 @@ async function saveScortaEdit(id){
   const crudo=num(v('es-crudo')),cotto=num(v('es-cotto'));
   if(!(crudo>0)||!(cotto>0)){toast('Servono peso crudo e cotto');return}
   let rest=num(v('es-rest'));
-  if(num(s.cotto_g)!==cotto&&rest===num(s.restante)&&!(s.log&&s.log.length))rest=cotto;
+  const changedBase=num(s.crudo_g)!==crudo||num(s.cotto_g)!==cotto;
+  if(changedBase&&rest===num(s.restante)){
+    // tengo uguale quanto è già stato mangiato
+    const L=s.log||[];
+    const eaten=L.length<30?L.filter(e=>e.tipo!=='ripesa').reduce((a,e)=>a+num(e.g),0):num(s.cotto_g)-num(s.restante);
+    rest=cotto-eaten;
+  }
   const pz=clone(s.porz||{});
   pz.vein=Object.assign({presi:0},pz.vein,{crudo:num(v('es-vg')),n:Math.round(num(v('es-vn')))});
   pz.andrus=Object.assign({presi:0},pz.andrus,{crudo:num(v('es-ag')),n:Math.round(num(v('es-an')))});
-  const data={nome:(v('es-nome')||'').trim()||'Scorta',crudo_g:crudo,cotto_g:cotto,stimato:s.stimato&&cotto===num(s.cotto_g),porz:pz,restante:Math.max(0,rest),agg:Date.now()};
+  const data={nome:(v('es-nome')||'').trim()||'Scorta',crudo_g:crudo,cotto_g:cotto,stimato:s.stimato&&cotto===num(s.cotto_g),porz:pz,restante:Math.max(0,Math.round(rest)),agg:Date.now()};
+  if(changedBase)data.fattore=null;
   if(await updDoc('scorte',id,data)){S.editScorta=null;S.delAsk=null;renderScorte(true);toast('Scorta aggiornata')}
 }
 async function saveScortaFromCalc(){
@@ -1453,6 +1508,8 @@ document.addEventListener('click',async e=>{
     case 'take':await lockRun(id,()=>takePortion(id,b.dataset.who));break;
     case 'sc-sub':await lockRun(id,()=>subGrams(id));break;
     case 'sc-undo':await lockRun(id,()=>undoLast(id));break;
+    case 'sc-more':S.scMore=S.scMore===id?null:id;renderScorte(false);break;
+    case 'sc-reweigh':await lockRun(id,()=>reweigh(id));break;
     case 'sc-edit':S.editScorta=id;S.delAsk=null;renderScorte(true);break;
     case 'sc-cancel':S.editScorta=null;S.delAsk=null;renderScorte(true);break;
     case 'sc-save':await saveScortaEdit(id);break;
