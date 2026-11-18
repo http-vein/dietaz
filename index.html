@@ -849,8 +849,13 @@ document.addEventListener('change',e=>{
 });
 
 const STOPW=['di','del','della','al','all','alla','con','in'];
+const gkeyF=n=>norm(n).split(' / ')[0].trim();
+const EXACTF=new Set(FOODIDX.map(f=>gkeyF(f.n)));
 function chipsFor(food,who){
   const q=norm(food).trim();if(q.length<2)return [];
+  // nome preciso di un alimento delle diete: solo le sue dosi (niente «Pasta di grano saraceno» per «Pasta»)
+  const qk=q.split(' / ')[0].trim();
+  if(EXACTF.has(qk)){const ex=[];FOODIDX.forEach(f=>{if(f.who===who&&gkeyF(f.n)===qk&&!ex.some(o=>o.g===f.g))ex.push(f)});return ex}
   const toks=q.split(/[^a-z0-9]+/).filter(t=>t.length>=3&&!STOPW.includes(t));
   const out=[];
   FOODIDX.forEach(f=>{
@@ -1049,9 +1054,13 @@ const ALLDOSES={vein:new Set(),andrus:new Set()};FOODIDX.forEach(f=>ALLDOSES[f.w
 // Mette la dose della dieta quando cambia l'alimento, o se nella casella è rimasta la dose di un altro alimento
 function autoDose(mode){
   const q=calcQ();
+  const res={vein:chipsFor(q,'vein').map(f=>f.g),andrus:chipsFor(q,'andrus').map(f=>f.g)};
+  const known=res.vein.length||res.andrus.length;
   [['v','vein'],['a','andrus']].forEach(([x,who])=>{
-    const ds=chipsFor(q,who).map(f=>f.g);if(!ds.length)return;
-    const cur=num(C[x].g);if(ds.includes(cur))return;
+    const ds=res[who];const cur=num(C[x].g);
+    // alimento di una sola dieta: svuoto le caselle dell'altro
+    if(!ds.length){if(mode==='change'&&known&&(cur||num(C[x].n))){C[x].g='';C[x].n='';$('#c-'+x+'g').value='';$('#c-'+x+'n').value=''}return}
+    if(ds.includes(cur))return;
     if(mode==='change'||!cur||ALLDOSES[who].has(cur)){C[x].g=String(ds[0]);$('#c-'+x+'g').value=C[x].g}
   });
 }
@@ -1129,7 +1138,14 @@ $('#t-rows').addEventListener('input',e=>{
   const el=e.target;const i=+el.dataset.row;const tf=el.dataset.tf;if(!tf||!T[i])return;
   if(tf==='food'){
     T[i].food=el.value;
-    [['v','vein'],['a','andrus']].forEach(([x,w])=>{const c=chipsFor(el.value,w);if(c.length&&!num(T[i][x].g)){T[i][x].g=String(c[0].g);if(!num(T[i][x].n))T[i][x].n='1';$('#t-'+x+'g-'+i).value=T[i][x].g;$('#t-'+x+'n-'+i).value=T[i][x].n}});
+    // dosi della dieta per l'alimento scelto; se è di una sola dieta, l'altro resta vuoto
+    const res={vein:chipsFor(el.value,'vein').map(f=>f.g),andrus:chipsFor(el.value,'andrus').map(f=>f.g)};
+    if(res.vein.length||res.andrus.length)[['v','vein'],['a','andrus']].forEach(([x,w])=>{
+      const ds=res[w];const cur=num(T[i][x].g);
+      if(!ds.length){T[i][x].g='';T[i][x].n=''}
+      else{if(!ds.includes(cur))T[i][x].g=String(ds[0]);if(!num(T[i][x].n))T[i][x].n='1'}
+      $('#t-'+x+'g-'+i).value=T[i][x].g;$('#t-'+x+'n-'+i).value=T[i][x].n;
+    });
     $('#t-vc-'+i).innerHTML=chipsHTML(el.value,'vein','tot-chip',i);$('#t-ac-'+i).innerHTML=chipsHTML(el.value,'andrus','tot-chip',i);
   }
   else{T[i][tf[0]][tf[1]]=el.value}
