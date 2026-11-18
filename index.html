@@ -266,6 +266,12 @@ select.inp{padding-right:30px;background-image:linear-gradient(45deg,transparent
 /* totali */
 .tr{border:1px solid var(--line-soft);background:var(--surface-2);border-radius:13px;padding:12px;margin-bottom:10px;display:grid;gap:10px}
 .tr-top{display:flex;gap:8px}
+.tr-top .combo{flex:1}
+.combo{position:relative;min-width:0}
+.combo .inp{padding-right:52px}
+.combo-b{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:40px;height:34px;border-radius:8px;display:grid;place-items:center;color:var(--fg);background:var(--surface-3);border:1px solid var(--line);pointer-events:none}
+.combo-s{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:40px;height:34px;opacity:0;cursor:pointer;font-size:16px}
+.combo:has(.combo-s:focus-visible) .combo-b{outline:2px solid var(--accent);outline-offset:2px}
 .tp{display:grid;grid-template-columns:64px minmax(0,1fr) 14px 64px;gap:6px;align-items:center}
 .tp-n{font-weight:800;font-size:14px}
 .tp.vein .tp-n{color:var(--vein)}.tp.andrus .tp-n{color:var(--andrus)}
@@ -422,7 +428,7 @@ select.inp{padding-right:30px;background-image:linear-gradient(45deg,transparent
         <h2>Crudo → cotto</h2>
         <p class="lead">Pesa tutto da crudo e poi da cotto: per ogni porzione della dieta (che è in grammi crudi) vedi quanto pesare dal cotto.</p>
         <div class="stack">
-          <div class="field"><label for="c-food">Alimento</label><input id="c-food" class="inp" list="dl-foods" autocomplete="off" placeholder="Es. Riso bianco"></div>
+          <div class="field"><label for="c-food">Alimento</label><div class="combo"><input id="c-food" class="inp" list="dl-foods" autocomplete="off" placeholder="Scrivi o scegli dall'elenco"><span class="combo-b" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span><select class="combo-s" id="c-food-s" data-combo="c-food" aria-label="Scegli l'alimento dall'elenco"></select></div></div>
           <div class="g2">
             <div class="field"><label for="c-crudo">Peso crudo totale</label><div class="uw"><input id="c-crudo" class="inp num" inputmode="decimal" autocomplete="off" placeholder="0"><span class="u">g</span></div></div>
             <div class="field"><label for="c-cotto">Peso cotto totale</label><div class="uw"><input id="c-cotto" class="inp num" inputmode="decimal" autocomplete="off" placeholder="da pesare"><span class="u">g</span></div></div>
@@ -501,7 +507,7 @@ select.inp{padding-right:30px;background-image:linear-gradient(45deg,transparent
     <section id="v-spesa" class="view" aria-label="Lista della spesa" hidden>
       <div class="vh"><h1>Spesa</h1><p class="vh-s" id="sp-sub"></p></div>
       <form class="card stack" id="sp-form" autocomplete="off">
-        <div class="field"><label for="sp-nome">Cosa serve</label><input id="sp-nome" class="inp" list="dl-foods" placeholder="Es. Petto di pollo" enterkeyhint="done"></div>
+        <div class="field"><label for="sp-nome">Cosa serve</label><div class="combo"><input id="sp-nome" class="inp" list="dl-foods" placeholder="Scrivi o scegli dall'elenco" enterkeyhint="done"><span class="combo-b" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span><select class="combo-s" id="sp-nome-s" data-combo="sp-nome" aria-label="Scegli dall'elenco"></select></div></div>
         <div class="sp-q2">
           <div class="field"><label for="sp-qta">Quantità</label><input id="sp-qta" class="inp num" inputmode="decimal" placeholder="Es. 1,5"></div>
           <div class="field"><label for="sp-unita">Unità</label><select id="sp-unita" class="inp"><option value="">—</option><option>g</option><option>kg</option><option>pz</option><option>conf</option><option>L</option><option>mL</option></select></div>
@@ -821,6 +827,26 @@ const FOODIDX=[];
 });
 const FOODNAMES=Array.from(new Set(FOODIDX.map(f=>f.n).concat(FRUITS.map(f=>f.n)).concat(['Verdura','Uova','Marmellata','Olive verdi','Olive nere']))).sort((a,b)=>a.localeCompare(b,'it'));
 $('#dl-foods').innerHTML=FOODNAMES.map(n=>'<option value="'+esc(n)+'"></option>').join('');
+// Elenco a tendina: alimenti delle diete divisi tra «Vein e Andrus», «Solo Vein», «Solo Andrus»
+function foodOptions(spesa){
+  const m=new Map();
+  FOODIDX.forEach(f=>{if(f.n==='Sale')return;const k=norm(f.n).split(' / ')[0].trim();if(!m.has(k))m.set(k,{names:new Set(),who:new Set()});const e=m.get(k);e.names.add(f.n);e.who.add(f.who)});
+  const both=[],v=[],a=[];
+  m.forEach(e=>{const n=Array.from(e.names).sort((x,y)=>x.length-y.length)[0];(e.who.size===2?both:e.who.has('vein')?v:a).push(n)});
+  const og=(lab,arr)=>arr.length?'<optgroup label="'+esc(lab)+'">'+arr.slice().sort((x,y)=>x.localeCompare(y,'it')).map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join('')+'</optgroup>':'';
+  let h='<option value="">Scegli dall\'elenco…</option>'+og('Vein e Andrus',both)+og('Solo Vein',v)+og('Solo Andrus',a);
+  if(spesa)h+=og('Frutta',FRUITS.filter(f=>f.v).map(f=>f.n))+og('Altro',['Uova','Verdura','Marmellata','Olive verdi','Olive nere']);
+  return h;
+}
+const FOOD_OPTS=foodOptions(false);
+$('#c-food-s').innerHTML=FOOD_OPTS;$('#sp-nome-s').innerHTML=foodOptions(true);
+document.addEventListener('change',e=>{
+  const sel=e.target;if(!sel.classList||!sel.classList.contains('combo-s'))return;
+  const v=sel.value;sel.value='';if(!v)return;
+  const inp=document.getElementById(sel.dataset.combo);if(!inp)return;
+  inp.value=v;inp.dispatchEvent(new Event('input',{bubbles:true}));
+  if(inp.id==='sp-nome')$('#sp-qta').focus();
+});
 
 const STOPW=['di','del','della','al','all','alla','con','in'];
 function chipsFor(food,who){
@@ -1096,12 +1122,16 @@ function totText(r){
 function renderTot(){
   $('#t-rows').innerHTML=T.map((r,i)=>{
     const side=(x,who)=>'<div class="tp '+who+'"><span class="tp-n">'+NAME[who]+'</span><div class="uw"><input id="t-'+x+'g-'+i+'" class="inp num" inputmode="decimal" autocomplete="off" value="'+esc(r[x].g)+'" data-tf="'+x+'g" data-row="'+i+'" aria-label="Grammi a porzione per '+NAME[who]+'"><span class="u">g</span></div><span class="x">×</span><input id="t-'+x+'n-'+i+'" class="inp num" inputmode="numeric" autocomplete="off" value="'+esc(r[x].n)+'" data-tf="'+x+'n" data-row="'+i+'" aria-label="Numero di porzioni per '+NAME[who]+'"><div class="chips" id="t-'+x+'c-'+i+'">'+chipsHTML(r.food,who,'tot-chip',i)+'</div></div>';
-    return '<div class="tr"><div class="tr-top"><input id="t-food-'+i+'" class="inp" list="dl-foods" autocomplete="off" value="'+esc(r.food)+'" placeholder="Alimento" data-tf="food" data-row="'+i+'" aria-label="Alimento"><button type="button" class="icon" data-act="tot-del" data-row="'+i+'" aria-label="Rimuovi riga">'+IC.x+'</button></div>'+side('v','vein')+side('a','andrus')+'<div class="tr-out"><span class="tr-tot" id="t-out-'+i+'">'+totText(r)+'</span><div class="tr-act"><button type="button" class="btn sm" data-act="tot-spesa" data-row="'+i+'">+ Spesa</button><button type="button" class="btn sm" data-act="tot-calc" data-row="'+i+'">Crudo → cotto</button></div></div></div>';
+    return '<div class="tr"><div class="tr-top"><div class="combo"><input id="t-food-'+i+'" class="inp" list="dl-foods" autocomplete="off" value="'+esc(r.food)+'" placeholder="Alimento" data-tf="food" data-row="'+i+'" aria-label="Alimento"><span class="combo-b" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span><select class="combo-s" id="t-food-s-'+i+'" data-combo="t-food-'+i+'" aria-label="Scegli l\'alimento dall\'elenco">'+FOOD_OPTS+'</select></div><button type="button" class="icon" data-act="tot-del" data-row="'+i+'" aria-label="Rimuovi riga">'+IC.x+'</button></div>'+side('v','vein')+side('a','andrus')+'<div class="tr-out"><span class="tr-tot" id="t-out-'+i+'">'+totText(r)+'</span><div class="tr-act"><button type="button" class="btn sm" data-act="tot-spesa" data-row="'+i+'">+ Spesa</button><button type="button" class="btn sm" data-act="tot-calc" data-row="'+i+'">Crudo → cotto</button></div></div></div>';
   }).join('');
 }
 $('#t-rows').addEventListener('input',e=>{
   const el=e.target;const i=+el.dataset.row;const tf=el.dataset.tf;if(!tf||!T[i])return;
-  if(tf==='food'){T[i].food=el.value;$('#t-vc-'+i).innerHTML=chipsHTML(el.value,'vein','tot-chip',i);$('#t-ac-'+i).innerHTML=chipsHTML(el.value,'andrus','tot-chip',i)}
+  if(tf==='food'){
+    T[i].food=el.value;
+    [['v','vein'],['a','andrus']].forEach(([x,w])=>{const c=chipsFor(el.value,w);if(c.length&&!num(T[i][x].g)){T[i][x].g=String(c[0].g);if(!num(T[i][x].n))T[i][x].n='1';$('#t-'+x+'g-'+i).value=T[i][x].g;$('#t-'+x+'n-'+i).value=T[i][x].n}});
+    $('#t-vc-'+i).innerHTML=chipsHTML(el.value,'vein','tot-chip',i);$('#t-ac-'+i).innerHTML=chipsHTML(el.value,'andrus','tot-chip',i);
+  }
   else{T[i][tf[0]][tf[1]]=el.value}
   $('#t-out-'+i).innerHTML=totText(T[i]);lsSet('va-tot',T);
 });
